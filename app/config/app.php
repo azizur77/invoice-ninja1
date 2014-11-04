@@ -26,7 +26,7 @@ return array(
 	|
 	*/
 
-	'url' => 'https://www.invoiceninja.com',
+	'url' => 'http://localhost/~azizur/myprojects/invoice-ninja',
 
 	/*
 	|--------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+/app/config
 /app/config/staging
 /app/config/development
 /app/config/fortrabbit
@@ -19,3 +20,5 @@
 .idea
 .project
 /nbproject/private/
+.htaccess
+/public/.htaccess
