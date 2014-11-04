@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Invoice Ninja | {{ isset($title) ? $title : ' Free Online Invoice Templates & Generator' }}</title>    
-    <meta name="description" content="{{ isset($description) ? $description : 'Create and generate custom invoices online for free using Invoice Ninja. Use our templates or customize your own today.' }}"></meta>
+    <title>Invoice Ninja | {{ isset($title) ? $title : ' ' . trans('public.title') }}</title> 
+    <meta name="description" content="{{ isset($description) ? $description : trans('public.description') }}"></meta>
 
     <!-- Source: https://github.com/hillelcoren/invoice-ninja -->
     <!-- Version: {{ NINJA_VERSION }} -->
@@ -13,15 +13,20 @@
     <meta property="og:title" content="Invoice Ninja"></meta>
     <meta property="og:image" content="{{ SITE_URL }}/images/social.jpg"></meta>
     <meta property="og:description" content="Simple, Intuitive Invoicing."></meta>
-    
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= csrf_token() ?>">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
     <link href='//fonts.googleapis.com/css?family=Roboto:400,700,900,100' rel='stylesheet' type='text/css'>
     <link href='//fonts.googleapis.com/css?family=Roboto+Slab:400,300,700' rel='stylesheet' type='text/css'>
     <link href="{{ asset('favicon.ico') }}" rel="icon" type="image/x-icon">    
 
-    <script src="{{ asset('built.js') }}" type="text/javascript"></script>
+    @if (!Utils::isNinja())
+      <link rel="canonical" href="https://www.invoiceninja.com"></link>
+    @endif
+
+    <script src="{{ asset('built.js') }}?no_cache={{ NINJA_VERSION }}" type="text/javascript"></script>
 
     <script type="text/javascript">
     var NINJA = NINJA || {};      
@@ -89,7 +94,6 @@
         function trackUrl(url) {}
       </script>
     @endif
-
 
     @yield('body')
 

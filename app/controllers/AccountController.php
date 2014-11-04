@@ -19,6 +19,68 @@ class AccountController extends \BaseController {
 		$this->contactMailer = $contactMailer;
 	}	
 
+	public function install()
+	{
+		if (!Utils::isNinja() && !Schema::hasTable('accounts')) {
+			try {
+				Artisan::call('migrate');
+				Artisan::call('db:seed');		
+			} catch (Exception $e) {
+	      Response::make($e->getMessage(), 500);
+	    }
+		}
+
+		return Redirect::to('/');
+	}
+
+	public function update()
+	{		
+		if (!Utils::isNinja()) {
+			try {
+				Artisan::call('migrate');
+				Cache::flush();
+			} catch (Exception $e) {
+	      Response::make($e->getMessage(), 500);
+	    }
+	  }
+
+    return Redirect::to('/');
+	}
+
+	/*
+	public function reset()
+	{
+		if (Utils::isNinjaDev()) {			
+			Confide::logout();
+			try {
+				Artisan::call('migrate:reset');
+				Artisan::call('migrate');				
+				Artisan::call('db:seed');		
+			} catch (Exception $e) {
+	      Response::make($e->getMessage(), 500);
+	    }
+		}
+
+		return Redirect::to('/');
+	}
+	*/
+
+	public function demo()
+	{
+		$demoAccountId = Utils::getDemoAccountId();
+
+		if (!$demoAccountId) {
+			return Redirect::to('/');
+		}
+
+		$account = Account::find($demoAccountId);
+		$user = $account->users()->first();		
+
+		Auth::login($user, true);
+
+		return Redirect::to('invoices/create');
+	}
+	
 	public function getStarted()
 	{	
 		if (Auth::check())
@@ -109,7 +171,7 @@ class AccountController extends \BaseController {
 			{
 				$accountGateway = $account->account_gateways[0];
 				$config = $accountGateway->config;
-                $selectedCards = $accountGateway->accepted_credit_cards;
+				$selectedCards = $accountGateway->accepted_credit_cards;
                 
 				$configFields = json_decode($config);
                 
@@ -117,6 +179,9 @@ class AccountController extends \BaseController {
 				{
 					$configFields->$configField = str_repeat('*', strlen($value));
 				}
+			} else {
+				$accountGateway = AccountGateway::createNew();
+				$accountGateway->gateway_id = GATEWAY_MOOLAH;				
 			}
 			
 			$recommendedGateways = Gateway::remember(DEFAULT_QUERY_CACHE)
@@ -134,8 +199,8 @@ class AccountController extends \BaseController {
 					'data-siteUrl' => $recommendedGateway->site_url
 				);
 				$recommendedGatewayArray[$recommendedGateway->name] = $arrayItem;
-			}
-            
+			}      
+
       $creditCardsArray = unserialize(CREDIT_CARDS);
       $creditCards = [];
 			foreach($creditCardsArray as $card => $name)
@@ -153,25 +218,12 @@ class AccountController extends \BaseController {
 				'data-siteUrl' => ''
 			);
 			$recommendedGatewayArray['Other Options'] = $otherItem;
-      
-			$data = [
-				'account' => $account,
-				'accountGateway' => $accountGateway,
-				'config' => $configFields,
-				'gateways' => Gateway::remember(DEFAULT_QUERY_CACHE)
-					->orderBy('name')
-					->get(),
-				'dropdownGateways' => Gateway::remember(DEFAULT_QUERY_CACHE)
-					->where('recommended', '=', '0')
-					->orderBy('name')
-					->get(),
-				'recommendedGateways' => $recommendedGatewayArray,
-        'creditCardTypes' => $creditCards, 
-			];
-			
-			foreach ($data['gateways'] as $gateway)
+
+			$gateways = Gateway::remember(DEFAULT_QUERY_CACHE)->orderBy('name')->get();
+
+			foreach ($gateways as $gateway)
 			{
-				$paymentLibrary =  $gateway->paymentlibrary;
+				$paymentLibrary = $gateway->paymentlibrary;
 
 				$gateway->fields = $gateway->getFields();	
 	
@@ -180,7 +232,20 @@ class AccountController extends \BaseController {
 					$accountGateway->fields = $gateway->fields;						
 				}
 			}	
-
+      
+      $data = [
+				'account' => $account,
+				'accountGateway' => $accountGateway,
+				'config' => $configFields,
+				'gateways' => $gateways,
+				'dropdownGateways' => Gateway::remember(DEFAULT_QUERY_CACHE)
+					->where('recommended', '=', '0')
+					->orderBy('name')
+					->get(),
+				'recommendedGateways' => $recommendedGatewayArray,
+        'creditCardTypes' => $creditCards, 
+			];
+			
 			return View::make('accounts.payments', $data);
 		}
 		else if ($section == ACCOUNT_NOTIFICATIONS)
@@ -201,6 +266,38 @@ class AccountController extends \BaseController {
 				'account' => Auth::user()->account,
 				'feature' => $subSection
 			];
+
+			if ($subSection == ACCOUNT_INVOICE_DESIGN) 
+			{			
+				$invoice = new stdClass();
+				$client = new stdClass();
+				$invoiceItem = new stdClass();				
+				
+				$client->name = 'Sample Client';
+				$client->address1 = '';
+				$client->city = '';
+				$client->state = '';
+				$client->postal_code = '';
+				$client->work_phone = '';
+				$client->work_email = '';
+			
+				$invoice->invoice_number = Auth::user()->account->getNextInvoiceNumber();
+				$invoice->invoice_date = date_create()->format('Y-m-d');
+				$invoice->account = json_decode(Auth::user()->account->toJson());
+				$invoice->amount = $invoice->balance = 100;				
+
+				$invoiceItem->cost = 100;
+				$invoiceItem->qty = 1;
+				$invoiceItem->notes = 'Notes';
+				$invoiceItem->product_key = 'Item';				
+
+				$invoice->client = $client;
+				$invoice->invoice_items = [$invoiceItem];			
+				
+				$data['invoice'] = $invoice;
+				$data['invoiceDesigns'] = InvoiceDesign::remember(DEFAULT_QUERY_CACHE, 'invoice_designs_cache_'.Auth::user()->maxInvoiceDesignId())
+					->where('id', '<=', Auth::user()->maxInvoiceDesignId())->orderBy('id')->get();
+			}
 
 			return View::make("accounts.{$subSection}", $data);	
 		}
@@ -242,9 +339,9 @@ class AccountController extends \BaseController {
 		}		
 		else if ($section == ACCOUNT_ADVANCED_SETTINGS)
 		{
-			if ($subSection == ACCOUNT_CUSTOM_FIELDS) 
+			if ($subSection == ACCOUNT_INVOICE_SETTINGS) 
 			{
-				return AccountController::saveCustomFields();
+				return AccountController::saveInvoiceSettings();
 			} 
 			else if ($subSection == ACCOUNT_INVOICE_DESIGN)
 			{
@@ -269,11 +366,12 @@ class AccountController extends \BaseController {
 		return Redirect::to('company/products');		
 	}
 
-	private function saveCustomFields()
+	private function saveInvoiceSettings()
 	{
 		if (Auth::user()->account->isPro())
 		{
 			$account = Auth::user()->account;
+			
 			$account->custom_label1 = trim(Input::get('custom_label1'));
 			$account->custom_value1 = trim(Input::get('custom_value1'));
 			$account->custom_label2 = trim(Input::get('custom_label2'));
@@ -284,12 +382,26 @@ class AccountController extends \BaseController {
 			$account->custom_invoice_label2 = trim(Input::get('custom_invoice_label2'));
 			$account->custom_invoice_taxes1 = Input::get('custom_invoice_taxes1') ? true : false;
 			$account->custom_invoice_taxes2 = Input::get('custom_invoice_taxes2') ? true : false;			
-			$account->save();
 
-			Session::flash('message', trans('texts.updated_settings'));
+			$account->invoice_number_prefix = Input::get('invoice_number_prefix');
+			$account->invoice_number_counter = Input::get('invoice_number_counter');
+			$account->quote_number_prefix = Input::get('quote_number_prefix');
+			$account->share_counter = Input::get('share_counter') ? true : false;
+
+			if (!$account->share_counter) {
+				$account->quote_number_counter = Input::get('quote_number_counter');			
+			}
+
+			if (!$account->share_counter && $account->invoice_number_prefix == $account->quote_number_prefix) {
+				Session::flash('error', trans('texts.invalid_counter'));
+				return Redirect::to('company/advanced_settings/invoice_settings')->withInput();
+			} else {
+				$account->save();
+				Session::flash('message', trans('texts.updated_settings'));
+			}
 		}
 
-		return Redirect::to('company/advanced_settings/custom_fields');		
+		return Redirect::to('company/advanced_settings/invoice_settings');		
 	}
 
 	private function saveInvoiceDesign()
@@ -299,8 +411,9 @@ class AccountController extends \BaseController {
 			$account = Auth::user()->account;
 			$account->hide_quantity = Input::get('hide_quantity') ? true : false;
 			$account->hide_paid_to_date = Input::get('hide_paid_to_date') ? true : false;
-			$account->primary_color = Input::get('primary_color');// ? Input::get('primary_color') : null;
-			$account->secondary_color = Input::get('secondary_color');// ? Input::get('secondary_color') : null;
+			$account->primary_color = Input::get('primary_color');
+			$account->secondary_color = Input::get('secondary_color');
+			$account->invoice_design_id =  Input::get('invoice_design_id');
 			$account->save();
 
 			Session::flash('message', trans('texts.updated_settings'));
@@ -705,6 +818,7 @@ class AccountController extends \BaseController {
 		{
 			$account = Auth::user()->account;
 			$account->name = trim(Input::get('name'));
+            $account->vat_number = trim(Input::get('vat_number'));
 			$account->work_email = trim(Input::get('work_email'));
 			$account->work_phone = trim(Input::get('work_phone'));
 			$account->address1 = trim(Input::get('address1'));

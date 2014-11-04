@@ -23,7 +23,8 @@
 
 			{{ Former::legend('organization') }}
 			{{ Former::text('name')->data_bind("attr { placeholder: placeholderName }") }}
-			{{ Former::text('website') }}
+			{{ Former::text('vat_number') }}
+            {{ Former::text('website') }}
 			{{ Former::text('work_phone') }}
 			
 			@if (Auth::user()->isPro())				
@@ -61,10 +62,10 @@
 				<div class="form-group">
 					<div class="col-lg-8 col-lg-offset-4 bold">
 						<span class="redlink bold" data-bind="visible: $parent.contacts().length > 1">
-							{{ link_to('#', 'Remove contact -', array('data-bind'=>'click: $parent.removeContact')) }}
+							{{ link_to('#', trans('texts.remove_contact').' -', array('data-bind'=>'click: $parent.removeContact')) }}
 						</span>					
 						<span data-bind="visible: $index() === ($parent.contacts().length - 1)" class="pull-right greenlink bold">
-							{{ link_to('#', 'Add contact +', array('onclick'=>'return addContact()')) }}
+							{{ link_to('#', trans('texts.add_contact').' +', array('onclick'=>'return addContact()')) }}
 						</span>
 					</div>
 				</div>
@@ -157,8 +158,8 @@
 	</script>
 
 	<center class="buttons">
-		{{ Button::lg_primary_submit_success('Save')->append_with_icon('floppy-disk') }}
-    {{ Button::lg_default_link('clients/' . ($client ? $client->public_id : ''), 'Cancel')->append_with_icon('remove-circle'); }}
+		{{ Button::lg_primary_submit_success(trans('texts.save'))->append_with_icon('floppy-disk') }}
+    {{ Button::lg_default_link('clients/' . ($client ? $client->public_id : ''), trans('texts.cancel'))->append_with_icon('remove-circle'); }}
 	</center>
 
 	{{ Former::close() }}

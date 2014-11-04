@@ -104,7 +104,7 @@ class InvoiceController extends \BaseController {
 			}
 		}
 
-		$invoice->load('user', 'invoice_items', 'account.country', 'client.contacts', 'client.country');
+		$invoice->load('user', 'invoice_items', 'invoice_design', 'account.country', 'client.contacts', 'client.country');
 
 		$client = $invoice->client;
 		
@@ -151,7 +151,7 @@ class InvoiceController extends \BaseController {
 		if ($clone)
 		{
 			$invoice->id = null;
-			$invoice->invoice_number = Auth::user()->account->getNextInvoiceNumber();
+			$invoice->invoice_number = Auth::user()->account->getNextInvoiceNumber($invoice->is_quote);
 			$invoice->balance = $invoice->amount;
 			$method = 'POST';			
 			$url = "{$entityType}s";
@@ -243,8 +243,8 @@ class InvoiceController extends \BaseController {
 			'sizes' => Size::remember(DEFAULT_QUERY_CACHE)->orderBy('id')->get(),
 			'paymentTerms' => PaymentTerm::remember(DEFAULT_QUERY_CACHE)->orderBy('num_days')->get(['name', 'num_days']),
 			'industries' => Industry::remember(DEFAULT_QUERY_CACHE)->orderBy('name')->get(),				
-			'invoiceDesigns' => InvoiceDesign::remember(DEFAULT_QUERY_CACHE)->orderBy('id')->get(),
-			'invoiceLabels' => Auth::user()->account->getInvoiceLabels(),
+      'invoiceDesigns' => InvoiceDesign::remember(DEFAULT_QUERY_CACHE, 'invoice_designs_cache_'.Auth::user()->maxInvoiceDesignId())
+      	->where('id', '<=', Auth::user()->maxInvoiceDesignId())->orderBy('id')->get(),
 			'frequencies' => array(
 				1 => 'Weekly',
 				2 => 'Two weeks',
@@ -272,7 +272,7 @@ class InvoiceController extends \BaseController {
 		$action = Input::get('action');
 		$entityType = Input::get('entityType');
 
-		if ($action == 'archive' || $action == 'delete')
+		if ($action == 'archive' || $action == 'delete' || $action == 'mark')
 		{
 			return InvoiceController::bulk($entityType);
 		}
@@ -358,7 +358,7 @@ class InvoiceController extends \BaseController {
 			}
 			else if ($action == 'email') 
 			{	
-				if (Auth::user()->confirmed)
+				if (Auth::user()->confirmed && !Auth::user()->isDemo())
 				{
 					$message = trans("texts.emailed_{$entityType}");
 					$this->mailer->sendInvoice($invoice);
@@ -414,12 +414,14 @@ class InvoiceController extends \BaseController {
 	public function bulk($entityType = ENTITY_INVOICE)
 	{
 		$action = Input::get('action');
+		$statusId = Input::get('statusId');
 		$ids = Input::get('id') ? Input::get('id') : Input::get('ids');
-		$count = $this->invoiceRepo->bulk($ids, $action);
+		$count = $this->invoiceRepo->bulk($ids, $action, $statusId);
 
  		if ($count > 0)		
  		{
-			$message = Utils::pluralize("{$action}d_{$entityType}", $count);
+ 			$key = $action == 'mark' ? "updated_{$entityType}" : "{$action}d_{$entityType}";
+			$message = Utils::pluralize($key, $count);
 			Session::flash('message', $message);
 		}
 

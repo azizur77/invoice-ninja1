@@ -141,28 +141,25 @@ class Account extends Eloquent
 		return $height;
 	}
 
-	public function getNextInvoiceNumber()
-	{			
-		$invoices = Invoice::withTrashed()->scope(false, $this->id)->get(['invoice_number']);
+	public function getNextInvoiceNumber($isQuote = false)
+	{
+		$counter = $isQuote && !$this->share_counter ? $this->quote_number_counter : $this->invoice_number_counter;
+		$prefix = $isQuote ? $this->quote_number_prefix : $this->invoice_number_prefix;
 
-		$max = 0;
-
-		foreach ($invoices as $invoice)
-		{
-			$number = intval(preg_replace("/[^0-9]/", "", $invoice->invoice_number));
-			$max = max($max, $number);
-		}
-		
-		if ($max > 0) 
-		{
-			return str_pad($max+1, 4, "0", STR_PAD_LEFT);
-		}	
-		else
-		{
-			return DEFAULT_INVOICE_NUMBER;
-		}
+		return $prefix . str_pad($counter, 4, "0", STR_PAD_LEFT);
 	}
 
+	public function incrementCounter($isQuote = false) 
+	{
+		if ($isQuote && !$this->share_counter) {
+			$this->quote_number_counter += 1;
+		} else {
+			$this->invoice_number_counter += 1;
+		}
+
+		$this->save();
+	}
+	
 	public function getLocale() 
 	{
 		$language = Language::remember(DEFAULT_QUERY_CACHE)->where('id', '=', $this->account->language_id)->first();		
@@ -208,6 +205,7 @@ class Account extends Eloquent
   		'quote_date',
   		'quote_number',
   		'total',
+  		'invoice_issued_to',
 		];
 
 		foreach ($fields as $field)
@@ -252,4 +250,53 @@ class Account extends Eloquent
 	{
 		return Subscription::where('account_id', '=', $this->id)->where('event_id', '=', $eventId)->first();
 	}
+
+	public function hideFieldsForViz()
+	{
+		foreach ($this->clients as $client)
+		{
+			$client->setVisible([
+				'public_id',
+				'name', 
+				'balance',
+				'paid_to_date',
+				'invoices',
+				'contacts',
+			]);
+			
+			foreach ($client->invoices as $invoice) 
+			{
+				$invoice->setVisible([
+					'public_id',
+					'invoice_number',
+					'amount',
+					'balance',
+					'invoice_status_id',
+					'invoice_items',
+					'created_at',
+				]);
+
+				foreach ($invoice->invoice_items as $invoiceItem) 
+				{
+					$invoiceItem->setVisible([
+						'product_key',
+						'cost', 
+						'qty',
+					]);
+				}			
+			}
+
+			foreach ($client->contacts as $contact) 
+			{
+				$contact->setVisible([
+					'public_id',
+					'first_name',
+					'last_name',
+					'email']);
+			}						
+		}
+
+		return $this;
+	}
+
 }

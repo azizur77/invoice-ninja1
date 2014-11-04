@@ -60,7 +60,7 @@ class QuoteController extends \BaseController {
     }
 
     $client = null;
-    $invoiceNumber = Auth::user()->account->getNextInvoiceNumber();
+    $invoiceNumber = Auth::user()->account->getNextInvoiceNumber(true);
     $account = Account::with('country')->findOrFail(Auth::user()->account_id);
 
     if ($clientPublicId) 
@@ -95,7 +95,8 @@ class QuoteController extends \BaseController {
       'sizes' => Size::remember(DEFAULT_QUERY_CACHE)->orderBy('id')->get(),
       'paymentTerms' => PaymentTerm::remember(DEFAULT_QUERY_CACHE)->orderBy('num_days')->get(['name', 'num_days']),
       'industries' => Industry::remember(DEFAULT_QUERY_CACHE)->orderBy('name')->get(),        
-      'invoiceDesigns' => InvoiceDesign::remember(DEFAULT_QUERY_CACHE)->orderBy('id')->get(),
+      'invoiceDesigns' => InvoiceDesign::remember(DEFAULT_QUERY_CACHE, 'invoice_designs_cache_'.Auth::user()->maxInvoiceDesignId())
+        ->where('id', '<=', Auth::user()->maxInvoiceDesignId())->orderBy('id')->get(),
       'invoiceLabels' => Auth::user()->account->getInvoiceLabels()
     ];
   }

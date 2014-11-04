@@ -27,6 +27,11 @@ class Invoice extends EntityModel
 		return $this->belongsTo('InvoiceStatus');
 	}
 
+	public function invoice_design()
+	{
+		return $this->belongsTo('InvoiceDesign');
+	}
+
 	public function invitations()
 	{
 		return $this->hasMany('Invitation');
@@ -79,6 +84,7 @@ class Invoice extends EntityModel
 			'tax_name', 
 			'tax_rate', 
 			'account', 
+			'invoice_design',
 			'invoice_design_id',
 			'is_pro',
 			'is_quote',
@@ -88,7 +94,8 @@ class Invoice extends EntityModel
 			'custom_taxes2']);
 		
 		$this->client->setVisible([
-			'name', 
+			'name',
+            'vat_number',
 			'address1', 
 			'address2', 
 			'city', 
@@ -103,7 +110,8 @@ class Invoice extends EntityModel
 			'custom_value2']);
 
 		$this->account->setVisible([
-			'name', 
+			'name',
+            'vat_number',
 			'address1', 
 			'address2', 
 			'city', 
@@ -211,6 +219,7 @@ class Invoice extends EntityModel
 
 Invoice::created(function($invoice)
 {
+	$invoice->account->incrementCounter($invoice->is_quote);
 	Activity::createInvoice($invoice);
 });
 

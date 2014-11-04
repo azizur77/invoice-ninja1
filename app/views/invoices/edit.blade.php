@@ -265,11 +265,12 @@
 		</div>
 
 
+		@if (!Utils::isPro() || InvoiceDesign::count() == COUNT_FREE_DESIGNS)
+			{{ Former::select('invoice_design_id')->style('display:inline;width:150px')->raw()->fromQuery($invoiceDesigns, 'name', 'id')->data_bind("value: invoice_design_id")->addOption(trans('texts.more_designs') . '...', '-1') }}
+		@else 
+			{{ Former::select('invoice_design_id')->style('display:inline;width:150px')->raw()->fromQuery($invoiceDesigns, 'name', 'id')->data_bind("value: invoice_design_id") }}
+		@endif
 
-		{{ Former::select('invoice_design_id')->style('display:inline;width:120px')->raw()
-					->fromQuery($invoiceDesigns, 'name', 'id')->data_bind("value: invoice_design_id") }}
-
-				
 		{{ Button::primary(trans('texts.download_pdf'), array('onclick' => 'onDownloadClick()'))->append_with_icon('download-alt'); }}	
         
 		@if (!$invoice || (!$invoice->trashed() && !$invoice->client->trashed()))						
@@ -317,11 +318,8 @@
 
 	</div>
 	<p>&nbsp;</p>
-	
-	<!-- <textarea rows="20" cols="120" id="pdfText" onkeyup="runCode()"></textarea> -->
-	<!-- <iframe frameborder="1" width="100%" height="600" style="display:block;margin: 0 auto"></iframe>	-->
-	<iframe id="theFrame" style="display:none" frameborder="1" width="100%" height="1180"></iframe>
-	<canvas id="theCanvas" style="display:none;width:100%;border:solid 1px #CCCCCC;"></canvas>
+
+	@include('invoices.pdf', ['account' => Auth::user()->account])
 
 	@if (!Auth::user()->account->isPro())
 		<div style="font-size:larger">
@@ -343,6 +341,8 @@
 
 				{{ Former::legend('organization') }}
 				{{ Former::text('name')->data_bind("value: name, valueUpdate: 'afterkeydown', attr { placeholder: name.placeholder }") }}
+                {{ Former::text('vat_number')->data_bind("value: vat_number, valueUpdate: 'afterkeydown'") }}
+                
 				{{ Former::text('website')->data_bind("value: website, valueUpdate: 'afterkeydown'") }}
 				{{ Former::text('work_phone')->data_bind("value: work_phone, valueUpdate: 'afterkeydown'") }}
 
@@ -643,82 +643,35 @@
 			invoice.imageHeight = {{ $account->getLogoHeight() }};
 		@endif
 
-		window.logoImages = {};
-    logoImages.imageLogo1 = "{{ HTML::image_data('images/report_logo1.jpg') }}";
-		logoImages.imageLogoWidth1 =120;
-    logoImages.imageLogoHeight1 = 40
-
-    logoImages.imageLogo2 = "{{ HTML::image_data('images/report_logo2.jpg') }}";
-    logoImages.imageLogoWidth2 =325/2;
-    logoImages.imageLogoHeight2 = 81/2;
-
-    logoImages.imageLogo3 = "{{ HTML::image_data('images/report_logo3.jpg') }}";
-    logoImages.imageLogoWidth3 =325/2;
-    logoImages.imageLogoHeight3 = 81/2;
-
-
     return invoice;
 	}
 
-	/*
-	function refreshPDF() {
-		setTimeout(function() {
-			_refreshPDF();
-		}, 100);
-	}	
-	*/
-
-	var isRefreshing = false;
-	var needsRefresh = false;
-
 	function getPDFString() {		
 		var invoice = createInvoiceModel();
-		var doc = generatePDF(invoice);
+		var design  = getDesignJavascript();
+		if (!design) return;
+		var doc = generatePDF(invoice, design);
 		if (!doc) return;
 		return doc.output('datauristring');
 	}
 
-	function refreshPDF() {
-		if ({{ Auth::user()->force_pdfjs ? 'false' : 'true' }} && (isFirefox || (isChrome && !isChromium))) {
-			var string = getPDFString();
-			if (!string) return;
-			$('#theFrame').attr('src', string).show();		
-		} else {			
-			if (isRefreshing) {
-				needsRefresh = true;
-				return;
-			}
-			var string = getPDFString();
-			if (!string) return;
-			isRefreshing = true;
-			var pdfAsArray = convertDataURIToBinary(string);	
-	    PDFJS.getDocument(pdfAsArray).then(function getPdfHelloWorld(pdf) {
-
-	      pdf.getPage(1).then(function getPageHelloWorld(page) {
-	        var scale = 1.5;
-	        var viewport = page.getViewport(scale);
-
-	        var canvas = document.getElementById('theCanvas');
-	        var context = canvas.getContext('2d');
-	        canvas.height = viewport.height;
-	        canvas.width = viewport.width;
-
-	        page.render({canvasContext: context, viewport: viewport});
-	      	$('#theCanvas').show();
-	      	isRefreshing = false;
-	      	if (needsRefresh) {
-	      		needsRefresh = false;
-	      		refreshPDF();
-	      	}
-	      });
-	    });	
+	function getDesignJavascript() {
+		var id = $('#invoice_design_id').val();
+		if (id == '-1') {
+			showMoreDesigns();
+			model.invoice().invoice_design_id(1);
+			return invoiceDesigns[0].javascript;
+		} else {
+			return invoiceDesigns[id-1].javascript;
 		}
 	}
 
 	function onDownloadClick() {
 		trackUrl('/download_pdf');
 		var invoice = createInvoiceModel();
-		var doc = generatePDF(invoice, true);
+		var design  = getDesignJavascript();
+		if (!design) return;
+		var doc = generatePDF(invoice, design, true);
 		doc.save('Invoice-' + $('#invoice_number').val() + '.pdf');
 	}
 
@@ -1269,6 +1222,7 @@
 		var self = this;
 		self.public_id = ko.observable(0);
 		self.name = ko.observable('');
+        self.vat_number = ko.observable('');
 		self.work_phone = ko.observable('');
 		self.custom_value1 = ko.observable('');
 		self.custom_value2 = ko.observable('');
@@ -1561,10 +1515,11 @@
 
 	var products = {{ $products }};
 	var clients = {{ $clients }};	
-	var invoiceLabels = {{ json_encode($invoiceLabels) }};
+	
 	var clientMap = {};
 	var $clientSelect = $('select#client');
-	
+	var invoiceDesigns = {{ $invoiceDesigns }};
+
 	for (var i=0; i<clients.length; i++) {
 		var client = clients[i];
 		for (var j=0; j<client.contacts.length; j++) {
@@ -1599,15 +1554,15 @@
 			}
 			model.invoice().addItem();
 			//model.addTaxRate();			
-		@else 
+		@else
+            // TODO: Add the first tax rate for new invoices by adding a new db field to the tax codes types to set the default
+            //if(model.invoice_taxes() && model.tax_rates().length > 2) {
+            //    var tax = model.tax_rates()[1];
+            //    model.invoice().tax(tax);
+            //}
 			model.invoice().custom_taxes1({{ $account->custom_invoice_taxes1 ? 'true' : 'false' }});
 			model.invoice().custom_taxes2({{ $account->custom_invoice_taxes2 ? 'true' : 'false' }});
 		@endif
-                // Add the first tax rate for new invoices
-                //if(model.invoice_taxes() && model.tax_rates().length > 0) {
-                //    var tax = model.tax_rates()[0];
-                //    model.invoice().tax(tax);
-                //}
 	@endif
 
 	model.invoice().tax(model.getTaxRate(model.invoice().tax_name(), model.invoice().tax_rate()));			

@@ -322,6 +322,13 @@ return array(
   'updated_product' => 'Successfully updated product',
   'created_product' => 'Successfully created product',
   'archived_product' => 'Successfully archived product',
+  'pro_plan_custom_fields' => ':link to enable custom fields by joining the Pro Plan',
+
+  'advanced_settings' => 'Advanced Settings',
+  'pro_plan_advanced_settings' => ':link to enable the advanced settings by joining the Pro Plan',
+  'invoice_design' => 'Invoice Design',
+  'specify_colors' => 'Specify colors',
+  'specify_colors_label' => 'Select the colors used in the invoice',
 
   'chart_builder' => 'Chart Builder',
   'ninja_email_footer' => 'Use :site to invoice your clients and get paid online for free!',
@@ -396,10 +403,42 @@ return array(
 
   'confirm_email_invoice' => 'Are you sure you want to email this invoice?',
   'confirm_email_quote' => 'Are you sure you want to email this quote?',
-  'confirm_recurring_email_invoice' => 'Are you sure you want this invoice emailed?',
-  
+  'confirm_recurring_email_invoice' => 'Recurring is enabled, are you sure you want this invoice emailed?',
+
   'cancel_account' => 'Cancel Account',
   'cancel_account_message' => 'Warning: This will permanently erase all of your data, there is no undo.',
   'go_back' => 'Go Back',
 
+  'data_visualizations' => 'Data Visualizations',
+  'sample_data' => 'Sample data shown',
+  'hide' => 'Hide',
+  'new_version_available' => 'A new version of :releases_link is available. You\'re running v:user_version, the latest is v:latest_version',
+
+  'invoice_settings' => 'Invoice Settings',
+  'invoice_number_prefix' => 'Invoice Number Prefix',
+  'invoice_number_counter' => 'Invoice Number Counter',
+  'quote_number_prefix' => 'Quote Number Prefix',
+  'quote_number_counter' => 'Quote Number Counter',
+  'share_invoice_counter' => 'Share invoice counter',
+  'invoice_issued_to' => 'Invoice issued to',
+  'invalid_counter' => 'To prevent a possible conflict please set either an invoice or quote number prefix',
+  'mark_sent' => 'Mark sent',    
+
+  'gateway_help_1' => ':link to sign up for Authorize.net.',
+  'gateway_help_2' => ':link to sign up for Authorize.net.',
+  'gateway_help_17' => ':link to get your PayPal API signature.',
+  'gateway_help_23' => 'Note: use your secret API key, not your publishable API key.',
+  'gateway_help_27' => ':link to sign up for TwoCheckout.',
+
+  'more_designs' => 'More designs',
+  'more_designs_title' => 'Additional Invoice Designs',
+  'more_designs_cloud_header' => 'Go Pro for more invoice designs',
+  'more_designs_cloud_text' => '',
+  'more_designs_self_host_header' => 'Get 6 more invoice designs for just $20',
+  'more_designs_self_host_text' => '',
+  'buy' => 'Buy',
+  'bought_designs' => 'Successfully added additional invoice designs',
+    
+    
+  
 );
